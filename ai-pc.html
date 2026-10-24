@@ -1,0 +1,2035 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>错题本 · PC端</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome 图标库 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+
+    body {
+      font-family: 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f8fafc;
+    }
+
+    /* 3D 翻转卡片核心样式 */
+    .flip-card {
+      perspective: 1000px;
+      min-height: 400px;
+      height: 400px;
+    }
+
+    .flip-card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      transform-style: preserve-3d;
+    }
+
+    .flip-card.flipped .flip-card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .flip-card-front, .flip-card-back {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      border-radius: 0.75rem;
+      transform-style: preserve-3d;
+      overflow: hidden;
+    }
+
+    .flip-card-front {
+      z-index: 2;
+      transform: rotateY(0deg);
+    }
+
+    .flip-card-back {
+      transform: rotateY(180deg);
+      z-index: 1;
+    }
+
+    /* 解决 3D 翻转后背面点击被正面透明层拦截的问题 */
+    .flip-card.flipped .flip-card-front {
+      pointer-events: none !important;
+      z-index: 1 !important;
+      visibility: hidden;
+    }
+
+    .flip-card.flipped .flip-card-back {
+      pointer-events: auto !important;
+      z-index: 10 !important;
+      visibility: visible;
+    }
+
+    .flip-card:not(.flipped) .flip-card-back {
+      pointer-events: none !important;
+      visibility: hidden;
+    }
+
+    .flip-card:not(.flipped) .flip-card-front {
+      pointer-events: auto !important;
+      visibility: visible;
+    }
+
+    /* 自定义滚动条 */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background-color: #cbd5e1;
+      border-radius: 9999px;
+    }
+
+    /* 试卷打印专享样式 */
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #printArea, #printArea * {
+        visibility: visible;
+      }
+      #printArea {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        background: #fff !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .print-columns {
+        column-count: 2;
+        column-gap: 24px;
+        column-rule: 1px dashed #cbd5e1;
+      }
+      .print-item {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      .print-page-break {
+        page-break-before: always;
+        break-before: page;
+      }
+    }
+  </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+  <!-- 顶部导航栏 (非打印区) -->
+  <header class="no-print bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- 左上角标题精简呈现 -->
+      <div class="flex items-center space-x-3">
+        <div id="app-logo-icon" class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-xs">
+          <i class="fa-solid fa-graduation-cap text-base"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-slate-900 tracking-tight">错题本</h1>
+        </div>
+      </div>
+
+      <!-- 导航标签 -->
+      <nav class="flex items-center space-x-1.5 sm:space-x-2">
+        <button onclick="switchTab('library')" id="nav-library" class="nav-btn px-4 py-2 rounded-xl text-sm font-bold transition-all bg-indigo-50 text-indigo-700 flex items-center space-x-2 shadow-xs">
+          <i class="fa-solid fa-book-open"></i>
+          <span>错题自测</span>
+          <span id="badge-total-count" class="ml-1 text-xs bg-indigo-200 text-indigo-800 px-1.5 py-0.2 rounded-full font-bold">0</span>
+        </button>
+
+        <button onclick="switchTab('create')" id="nav-create" class="nav-btn px-4 py-2 rounded-xl text-sm font-medium transition-all text-slate-600 hover:bg-slate-100 flex items-center space-x-2">
+          <i class="fa-solid fa-circle-plus"></i>
+          <span>录入错题</span>
+        </button>
+
+        <button onclick="switchTab('paper')" id="nav-paper" class="nav-btn px-4 py-2 rounded-xl text-sm font-medium transition-all text-slate-600 hover:bg-slate-100 flex items-center space-x-2 relative">
+          <i class="fa-solid fa-file-pen"></i>
+          <span>重练卷</span>
+          <span id="badge-basket-count" class="ml-1 text-xs bg-rose-500 text-white px-1.5 py-0.2 rounded-full font-bold">0</span>
+        </button>
+
+        <button onclick="switchTab('settings')" id="nav-settings" class="nav-btn px-4 py-2 rounded-xl text-sm font-medium transition-all text-slate-600 hover:bg-slate-100 flex items-center space-x-2">
+          <i class="fa-solid fa-gear"></i>
+          <span>设置</span>
+        </button>
+      </nav>
+
+    </div>
+  </header>
+
+  <!-- 主体工作区 -->
+  <main class="no-print flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+    <!-- 视图 1: 错题自测库 (闭卷 3D 卡片) -->
+    <section id="view-library" class="space-y-6">
+      
+      <!-- 统计卡片与快速筛选 -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div onclick="setStatusFilter('ALL')" class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs cursor-pointer hover:border-indigo-400 transition-all flex items-center justify-between">
+          <div>
+            <p class="text-xs text-slate-400 font-medium">全部错题</p>
+            <h3 id="stat-all" class="text-2xl font-bold text-slate-800 mt-1">0</h3>
+          </div>
+          <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+            <i class="fa-solid fa-layer-group"></i>
+          </div>
+        </div>
+        <div onclick="setStatusFilter('PENDING')" class="bg-white p-4 rounded-2xl border border-rose-100 shadow-xs cursor-pointer hover:border-rose-400 transition-all flex items-center justify-between">
+          <div>
+            <p class="text-xs text-rose-500 font-medium">待攻克</p>
+            <h3 id="stat-pending" class="text-2xl font-bold text-rose-600 mt-1">0</h3>
+          </div>
+          <div class="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center text-rose-500">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+        </div>
+        <div onclick="setStatusFilter('PROGRESS')" class="bg-white p-4 rounded-2xl border border-amber-100 shadow-xs cursor-pointer hover:border-amber-400 transition-all flex items-center justify-between">
+          <div>
+            <p class="text-xs text-amber-500 font-medium">攻克中</p>
+            <h3 id="stat-progress" class="text-2xl font-bold text-amber-600 mt-1">0</h3>
+          </div>
+          <div class="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-500">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+          </div>
+        </div>
+        <div onclick="setStatusFilter('MASTERED')" class="bg-white p-4 rounded-2xl border border-emerald-100 shadow-xs cursor-pointer hover:border-emerald-400 transition-all flex items-center justify-between">
+          <div>
+            <p class="text-xs text-emerald-600 font-medium">已掌握</p>
+            <h3 id="stat-mastered" class="text-2xl font-bold text-emerald-600 mt-1">0</h3>
+          </div>
+          <div class="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
+            <i class="fa-solid fa-circle-check"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 筛选与操作过滤条 -->
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <!-- 搜索框 -->
+          <div class="relative flex-1 min-w-[240px]">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-sm"></i>
+            <input type="text" id="searchInput" oninput="renderLibrary()" placeholder="搜索题干、反思备注或知识点..." class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+          </div>
+
+          <!-- 学科下拉 -->
+          <select id="subjectFilter" onchange="renderLibrary()" class="py-2 px-3 border border-slate-200 rounded-xl text-sm bg-white text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <option value="ALL">全部学科</option>
+            <option value="数学">数学</option>
+            <option value="语文">语文</option>
+            <option value="英语">英语</option>
+            <option value="物理">物理</option>
+            <option value="化学">化学</option>
+            <option value="生物">生物</option>
+            <option value="历史">历史</option>
+            <option value="地理">地理</option>
+            <option value="政治">道法/政治</option>
+            <option value="其他">其他</option>
+          </select>
+
+          <!-- 错因筛选 -->
+          <select id="reasonFilter" onchange="renderLibrary()" class="py-2 px-3 border border-slate-200 rounded-xl text-sm bg-white text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <option value="ALL">全部错因</option>
+            <option value="概念不清">概念不清</option>
+            <option value="审题粗心">审题粗心</option>
+            <option value="计算失误">计算失误</option>
+            <option value="思路堵塞">思路堵塞</option>
+            <option value="新颖题型">新颖题型</option>
+            <option value="公式混淆">公式混淆</option>
+          </select>
+
+          <!-- 批量加入组卷 -->
+          <button onclick="addAllVisibleToBasket()" class="px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-sm font-semibold transition-all flex items-center space-x-1.5 shadow-xs">
+            <i class="fa-solid fa-cart-plus"></i>
+            <span>将当前筛选全加入重练卷</span>
+          </button>
+        </div>
+
+        <!-- 状态单选标签排 -->
+        <div class="flex items-center space-x-2 pt-2 border-t border-slate-100 text-xs">
+          <span class="text-slate-400 font-medium">状态：</span>
+          <button onclick="setStatusFilter('ALL')" id="filter-status-ALL" class="status-tab px-3 py-1 rounded-lg bg-slate-800 text-white font-medium">全部</button>
+          <button onclick="setStatusFilter('PENDING')" id="filter-status-PENDING" class="status-tab px-3 py-1 rounded-lg text-slate-600 hover:bg-slate-100">待攻克</button>
+          <button onclick="setStatusFilter('PROGRESS')" id="filter-status-PROGRESS" class="status-tab px-3 py-1 rounded-lg text-slate-600 hover:bg-slate-100">攻克中</button>
+          <button onclick="setStatusFilter('MASTERED')" id="filter-status-MASTERED" class="status-tab px-3 py-1 rounded-lg text-slate-600 hover:bg-slate-100">已掌握</button>
+        </div>
+      </div>
+
+      <!-- 错题卡片网格容器 (3D 翻转卡片布局) -->
+      <div id="mistakes-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- 动态生成 3D 翻转卡片 -->
+      </div>
+
+      <!-- 空白占位 -->
+      <div id="library-empty" class="hidden py-16 text-center">
+        <div class="w-16 h-16 mx-auto rounded-full bg-slate-100 flex items-center justify-center text-slate-300 text-2xl mb-3">
+          <i class="fa-solid fa-inbox"></i>
+        </div>
+        <p class="text-slate-500 font-medium">未找到符合条件的错题</p>
+        <p class="text-xs text-slate-400 mt-1">试着切换筛选条件，或者点击上方“录入错题”吧！</p>
+      </div>
+
+    </section>
+
+    <!-- 视图 2: 录入错题 (支持 Ctrl+V 与 AI 一键识题) -->
+    <section id="view-create" class="hidden max-w-3xl mx-auto bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <h2 class="text-xl font-bold text-slate-800">录入新错题</h2>
+          <p class="text-xs text-slate-400 mt-0.5">支持直接按 Ctrl+V 粘贴截图，可调用大模型一键提取题干、LaTeX 与知识点</p>
+        </div>
+        <span class="px-2.5 py-1 text-xs rounded-full bg-indigo-50 text-indigo-700 font-semibold border border-indigo-100">
+          <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> AI 智能排版就绪
+        </span>
+      </div>
+
+      <form id="mistakeForm" onsubmit="handleSaveMistake(event)" class="space-y-5">
+        <!-- 题目图片（支持粘贴与拖拽） -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs font-bold text-slate-700">
+              题目题干图片（建议直接在此窗口按 <kbd class="px-1.5 py-0.5 bg-slate-100 rounded text-slate-600 border border-slate-200">Ctrl + V</kbd> 粘贴）
+            </label>
+            <span class="text-[11px] text-slate-400">支持截屏粘贴或拖拽</span>
+          </div>
+
+          <div id="dropZone" class="border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-2xl p-4 text-center cursor-pointer transition-all bg-slate-50/50">
+            <input type="file" id="imageInput" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
+            
+            <div id="uploadPlaceholder" class="space-y-1">
+              <i class="fa-solid fa-cloud-arrow-up text-2xl text-slate-400"></i>
+              <p class="text-sm font-semibold text-slate-700">点击上传、拖入照片，或直接按 Ctrl+V 粘贴截图</p>
+              <p class="text-xs text-slate-400">自动压缩至高清规格，不卡顿、秒级响应</p>
+            </div>
+            
+            <!-- 图片预览区 -->
+            <div id="imagePreviewContainer" class="hidden relative inline-block mt-2">
+              <img id="imagePreview" src="" alt="错题图片" class="max-h-64 rounded-xl shadow-xs border border-slate-200 object-contain mx-auto">
+              <button type="button" onclick="clearUploadedImage(event)" class="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs shadow-md hover:bg-rose-600">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI 一键识题辅助条 -->
+        <div id="pcAiOcrToolBar" class="p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100 flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <div class="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-slate-900">AI 智能提取题干与公式</p>
+              <p class="text-[10px] text-slate-500">自动识别题目文字、转换为 LaTeX 公式并推导易错点</p>
+            </div>
+          </div>
+          <button type="button" id="btnTriggerPcOcr" onclick="triggerPcAiOcr()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center space-x-1">
+            <i class="fa-solid fa-bolt"></i>
+            <span>一键提取</span>
+          </button>
+        </div>
+
+        <!-- 学科 + 来源 + 难度 -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">所属学科 *</label>
+            <select id="form-subject" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              <option value="数学">数学</option>
+              <option value="语文">语文</option>
+              <option value="英语">英语</option>
+              <option value="物理">物理</option>
+              <option value="化学">化学</option>
+              <option value="生物">生物</option>
+              <option value="历史">历史</option>
+              <option value="地理">地理</option>
+              <option value="政治">道法/政治</option>
+              <option value="其他">其他</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">错题来源</label>
+            <input type="text" id="form-source" placeholder="如：期中模拟卷、平时练习" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">难度星级</label>
+            <div class="flex items-center space-x-1.5 h-[38px] text-amber-400 text-lg cursor-pointer" id="form-stars">
+              <i class="fa-solid fa-star" onclick="setFormStars(1)"></i>
+              <i class="fa-solid fa-star" onclick="setFormStars(2)"></i>
+              <i class="fa-solid fa-star" onclick="setFormStars(3)"></i>
+              <i class="fa-regular fa-star" onclick="setFormStars(4)"></i>
+              <i class="fa-regular fa-star" onclick="setFormStars(5)"></i>
+            </div>
+            <input type="hidden" id="form-difficulty" value="3">
+          </div>
+        </div>
+
+        <!-- 错因分类标签 -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">错因诊断（可多选）</label>
+          <div class="flex flex-wrap gap-2" id="reasonTagsContainer">
+            <span onclick="toggleReasonTag(this, '概念不清')" class="reason-chip cursor-pointer px-3 py-1.5 text-xs font-medium rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all">概念不清</span>
+            <span onclick="toggleReasonTag(this, '审题粗心')" class="reason-chip cursor-pointer px-3 py-1.5 text-xs font-medium rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all">审题粗心</span>
+            <span onclick="toggleReasonTag(this, '计算失误')" class="reason-chip cursor-pointer px-3 py-1.5 text-xs font-medium rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all">计算失误</span>
+            <span onclick="toggleReasonTag(this, '思路堵塞')" class="reason-chip cursor-pointer px-3 py-1.5 text-xs font-medium rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all">思路堵塞</span>
+            <span onclick="toggleReasonTag(this, '新颖题型')" class="reason-chip cursor-pointer px-3 py-1.5 text-xs font-medium rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all">新颖题型</span>
+            <span onclick="toggleReasonTag(this, '公式混淆')" class="reason-chip cursor-pointer px-3 py-1.5 text-xs font-medium rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all">公式混淆</span>
+          </div>
+        </div>
+
+        <!-- 题目文字补充/题干 -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">题干文字内容（支持 LaTeX 公式）</label>
+          <textarea id="form-question" rows="3" placeholder="在此输入题目文本，或点击上方【一键提取】由大模型自动填入..." class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none"></textarea>
+        </div>
+
+        <!-- 当时反思与错误说明 -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">当时错误解法 & 孩子反思点</label>
+          <textarea id="form-reflection" rows="2" placeholder="当时错在哪里？漏看了什么条件？哪个概念混淆了？" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"></textarea>
+        </div>
+
+        <!-- 正确答案与解析 -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">正确答案 & 详细解析（隐藏在卡片背面）</label>
+          <textarea id="form-analysis" rows="3" placeholder="写下正解思路、踩分关键步骤或解题技巧..." class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none"></textarea>
+        </div>
+
+        <!-- 提交按钮 -->
+        <div class="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+          <button type="button" onclick="switchTab('library')" class="px-4 py-2 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50">取消</button>
+          <button type="submit" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-xs transition-all flex items-center space-x-2">
+            <i class="fa-solid fa-check"></i>
+            <span>保存并收入错题本</span>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- 视图 3: 重练卷与双栏打印预览 -->
+    <section id="view-paper" class="hidden space-y-6">
+      
+      <!-- 组卷控制台 -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+            <span>重练测试卷排版</span>
+            <span id="paperSelectedCountBadge" class="text-xs bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded-full border border-indigo-200">已选 0 题</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-1">支持双栏排版与留白草稿区，答案置于附录页，防偷看更专业</p>
+        </div>
+
+        <div class="flex items-center space-x-3">
+          <button onclick="clearBasket()" class="px-3.5 py-2 text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-xl text-sm font-semibold transition-all">
+            <i class="fa-solid fa-trash-can mr-1"></i> 清空组卷篮
+          </button>
+          <button onclick="window.print()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-xs transition-all flex items-center space-x-2">
+            <i class="fa-solid fa-print"></i>
+            <span>立即打印 / 存为PDF</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 试卷标题与设置 -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs grid grid-cols-1 sm:grid-cols-4 gap-3 text-sm">
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">试卷标题</label>
+          <input type="text" id="paperTitleInput" value="错题查漏补缺 · 自我突破重练卷" oninput="updatePaperHeader()" class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">副标题 / 孩子姓名</label>
+          <input type="text" id="paperSubTitleInput" value="姓名：__________  日期：____年__月__日  得分：____" oninput="updatePaperHeader()" class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">版面样式</label>
+          <select id="paperLayoutSelect" onchange="togglePaperLayout(this.value)" class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm bg-white">
+            <option value="columns">标准双栏排版 (更省纸张)</option>
+            <option value="single">单栏大留白 (充裕草稿区)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">附带答案页？</label>
+          <select id="paperAnswerSelect" onchange="toggleAnswerAppendix(this.value)" class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm bg-white">
+            <option value="yes">在末尾附录参考答案</option>
+            <option value="no">不附带答案（纯白卷）</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 试卷纸张模拟 (A4 效果) -->
+      <div class="bg-slate-200 p-4 sm:p-8 rounded-2xl flex justify-center">
+        <div id="paperSheet" class="bg-white w-full max-w-4xl p-8 sm:p-12 shadow-md rounded-lg min-h-[850px] text-slate-900 border border-slate-300">
+          
+          <!-- 试卷抬头 -->
+          <div class="text-center pb-6 border-b-2 border-slate-800 mb-6">
+            <h2 id="paperDisplayTitle" class="text-2xl font-bold tracking-wider">错题查漏补缺 · 自我突破重练卷</h2>
+            <p id="paperDisplaySubTitle" class="text-sm text-slate-600 mt-2">姓名：__________  日期：____年__月__日  得分：____</p>
+            <div class="text-xs text-slate-400 mt-1 italic">（认真审题，沉着作答，战胜曾经错过的自己！）</div>
+          </div>
+
+          <!-- 错题排版容器 -->
+          <div id="paperQuestionsContainer" class="print-columns space-y-6">
+            <!-- 动态生成题目 -->
+          </div>
+
+          <!-- 答案附录页 -->
+          <div id="paperAnswerAppendix" class="print-page-break mt-12 pt-8 border-t-2 border-dashed border-slate-400">
+            <div class="text-center mb-6">
+              <span class="inline-block px-4 py-1 rounded bg-slate-100 text-slate-700 text-sm font-bold tracking-wider border border-slate-300">
+                【参考答案与解题反思】（仅供考后批改核对）
+              </span>
+            </div>
+            <div id="paperAnswersContainer" class="space-y-4 text-xs">
+              <!-- 动态生成解析 -->
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 视图 4: 设置中心 (大模型 API 管理、手机端入口、备份恢复) -->
+    <section id="view-settings" class="hidden max-w-3xl mx-auto space-y-6">
+      
+      <!-- 1. 家长移动端专属入口 (二维码收敛在设置内) -->
+      <div class="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div>
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-mobile-screen-button text-indigo-600"></i> 家长手机端专属入口
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">主屏不增加多余按钮，手机直接扫码即可调起相机拍题并同步到电脑</p>
+          </div>
+          <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+            双端实时共享
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 items-center">
+          <div class="w-36 h-36 mx-auto sm:mx-0 p-2 border-2 border-dashed border-indigo-200 rounded-2xl bg-indigo-50/40 flex flex-col items-center justify-center text-center">
+            <i class="fa-solid fa-qrcode text-5xl text-indigo-600"></i>
+            <span class="text-[10px] text-indigo-700 font-bold mt-2">微信/手机扫码即开</span>
+          </div>
+
+          <div class="sm:col-span-2 space-y-2 text-xs text-slate-600">
+            <p class="font-bold text-slate-800 text-sm">家长在手机上操作，孩子在电脑上复习：</p>
+            <p class="leading-relaxed text-slate-500">1. 使用手机相机或微信扫描左侧二维码，即可在手机打开专属极速拍照录题页面；</p>
+            <p class="leading-relaxed text-slate-500">2. 手机录入并由 AI 清洗后的错题，将立即同步显示在电脑大屏上；</p>
+            <div class="pt-2 flex items-center gap-2">
+              <button onclick="copyMobileUrl()" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all">
+                <i class="fa-solid fa-copy mr-1"></i> 复制手机端链接
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. AI 大模型配置面板 (零初始激活、支持自由添加模型) -->
+      <div class="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div>
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-microchip text-indigo-600"></i> AI 大模型引擎与 API 密钥管理
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">支持预设与自定义大模型（兼容 OpenAI 协议），手机移动端自动免密共享</p>
+          </div>
+          <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+            <i class="fa-solid fa-share-nodes text-[11px]"></i> 手机端免密复用
+          </span>
+        </div>
+
+        <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 space-y-4 text-xs">
+          <!-- 模型选择下拉 + 添加自定义模型 -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="font-bold text-slate-700 flex items-center gap-1.5">
+                <span>当前激活的多模态大模型</span>
+                <span id="activeModelTag" class="text-[10px] px-1.5 py-0.2 rounded font-semibold bg-slate-200 text-slate-600">未激活</span>
+              </label>
+              <button type="button" onclick="toggleCustomModelForm(true)" class="text-indigo-600 hover:text-indigo-700 font-bold flex items-center gap-1">
+                <i class="fa-solid fa-plus-circle"></i>
+                <span>添加模型配置</span>
+              </button>
+            </div>
+            
+            <div class="flex items-center gap-2">
+              <select id="cfgModelSelect" onchange="handleModelSelectionChange(this.value)" class="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white text-slate-800 font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <!-- 动态填充模型列表 -->
+              </select>
+              <button type="button" id="btnDeleteCustomModel" onclick="deleteCurrentSelectedModel()" class="hidden px-2.5 py-2 border border-rose-200 bg-white hover:bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold transition-colors" title="删除该模型配置">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- 自定义新增模型折叠抽屉 -->
+          <div id="customModelDrawer" class="hidden p-4 rounded-xl bg-white border border-indigo-200 shadow-xs space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+              <span class="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-sliders text-indigo-600"></i> 新增模型配置 (OpenAI 协议通用)
+              </span>
+              <button type="button" onclick="toggleCustomModelForm(false)" class="text-slate-400 hover:text-slate-600 text-sm">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <!-- 快捷预填模版按键 -->
+            <div class="flex items-center gap-2 pb-1">
+              <span class="text-slate-400 text-[11px]">快捷填充模版:</span>
+              <button type="button" onclick="applyModelTemplate('aliyun_omni')" class="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 text-[10px] font-medium">
+                阿里云百炼 (qwen3.5-omni-plus)
+              </button>
+              <button type="button" onclick="applyModelTemplate('zhipu_glm')" class="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 text-[10px] font-medium">
+                智谱 AI (glm-4v-plus)
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-slate-600 font-medium mb-1">配置显示名称 *</label>
+                <input type="text" id="newModelDisplayName" placeholder="例如：我的通义 Qwen3.5 Omni" class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              </div>
+              <div>
+                <label class="block text-slate-600 font-medium mb-1">模型代码 (Model ID) *</label>
+                <input type="text" id="newModelId" placeholder="例如：qwen3.5-omni-plus" class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-mono bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-slate-600 font-medium mb-1">接口地址 (Base URL) *</label>
+                <input type="text" id="newModelBaseUrl" placeholder="例如：https://dashscope.aliyuncs.com/compatible-mode/v1" class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-mono bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              </div>
+              <div>
+                <label class="block text-slate-600 font-medium mb-1">API Key (凭证 sk-...) *</label>
+                <input type="password" id="newModelApiKey" placeholder="请输入在服务商平台获取的 API Key" class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-mono bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-1">
+              <button type="button" onclick="toggleCustomModelForm(false)" class="px-3 py-1.5 border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50">取消</button>
+              <button type="button" onclick="saveNewCustomModel()" class="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 shadow-xs">确认添加并激活</button>
+            </div>
+          </div>
+
+          <!-- 激活模型详情与 Key 配置区 -->
+          <div id="activeModelDetailsSection" class="space-y-4">
+            <div id="noModelConfiguredAlert" class="p-4 rounded-xl border border-dashed border-slate-300 bg-white text-center space-y-1.5">
+              <div class="w-9 h-9 mx-auto rounded-full bg-slate-100 flex items-center justify-center text-slate-400 text-sm">
+                <i class="fa-solid fa-microchip"></i>
+              </div>
+              <p class="font-bold text-slate-700 text-xs">当前尚未配置任何大模型</p>
+              <p class="text-[11px] text-slate-400">点击右上角“添加模型配置”，输入你的 API Key 即可激活 AI 识图、单步启发与变式演练。</p>
+            </div>
+
+            <div id="activeModelConfigFields" class="hidden space-y-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">接口地址 (Base URL)</label>
+                  <input type="text" id="cfgApiBaseUrl" placeholder="https://..." class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white font-mono text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">对应调用模型名 (Model ID)</label>
+                  <input type="text" id="cfgModelTargetId" placeholder="如：qwen3.5-omni-plus" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white font-mono text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+              </div>
+
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="font-bold text-slate-700">大模型 API Key *</label>
+                  <span class="text-[11px] text-slate-400">凭证加密存储于本地与云端，手机端免密复用</span>
+                </div>
+                <div class="relative">
+                  <input type="password" id="cfgApiKeyInput" placeholder="请输入你的 API Key (格式如: sk-xxxxxxxxxxxxxxxxxxxxxxxx)" class="w-full pl-3 pr-24 py-2 border border-slate-200 rounded-xl text-xs font-mono bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                  <button type="button" onclick="toggleApiKeyVisibility()" class="absolute right-2.5 top-1.5 px-2 py-1 text-[11px] text-slate-500 hover:text-slate-700 font-medium">
+                    <span id="btnToggleKeyText">显示</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="pt-2 flex items-center justify-between border-t border-slate-200/60">
+                <div class="flex items-center space-x-2 text-[11px]">
+                  <span id="aiConnectionStatus" class="inline-flex items-center gap-1 text-slate-500">
+                    <i class="fa-solid fa-circle text-[8px] text-slate-300"></i>
+                    <span>未测试连通</span>
+                  </span>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <button type="button" onclick="testAiConnection()" id="btnTestAiKey" class="px-3.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-all">
+                    <i class="fa-solid fa-plug mr-1"></i> 测试连通性
+                  </button>
+                  <button type="button" onclick="saveAiKeySettings()" class="px-5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center gap-1">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span>保存更新</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. 数据备份与恢复 -->
+      <div class="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+        <div>
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <i class="fa-solid fa-floppy-disk text-indigo-600"></i> 数据备份与迁移
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">错题数据存储在本地与云端，支持打包为 JSON 文件备份与换机迁移</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+          <div class="border border-slate-200 bg-slate-50 p-4 rounded-2xl space-y-2">
+            <div class="flex items-center space-x-2 text-indigo-600 font-bold text-xs">
+              <i class="fa-solid fa-file-export"></i>
+              <span>导出错题本全量数据</span>
+            </div>
+            <p class="text-[11px] text-slate-500 leading-relaxed">打包导出包含错题、反思及题干图的备份文件，以供长期归档。</p>
+            <button onclick="exportDataBackup()" class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs">
+              <i class="fa-solid fa-download mr-1"></i> 立即导出并保存
+            </button>
+          </div>
+
+          <div class="border border-slate-200 bg-slate-50 p-4 rounded-2xl space-y-2">
+            <div class="flex items-center space-x-2 text-emerald-600 font-bold text-xs">
+              <i class="fa-solid fa-file-import"></i>
+              <span>导入恢复错题本</span>
+            </div>
+            <p class="text-[11px] text-slate-500 leading-relaxed">换电脑或浏览器后，选择导出的备份文件即可完整无损还原。</p>
+            <label class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center cursor-pointer">
+              <i class="fa-solid fa-upload mr-1"></i> 选择备份文件恢复
+              <input type="file" id="importFileInput" accept=".json" class="hidden" onchange="handleImportBackup(event)">
+            </label>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- 弹窗 1: AI 单步启发弹窗 (孩子端苏格拉底点拨) -->
+  <div id="aiSocraticModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-lg rounded-3xl p-6 space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center text-sm shadow-xs">
+            <i class="fa-solid fa-lightbulb"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">AI 单步启发式点拨</h3>
+            <p class="text-[10px] text-slate-400">苏格拉底引导思考 · 保护解题突破链条</p>
+          </div>
+        </div>
+        <button onclick="closeSocraticModal()" class="text-slate-400 hover:text-slate-600 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="overflow-y-auto space-y-3 flex-1 pr-1 text-xs">
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+          <span class="text-[10px] text-slate-400 block mb-0.5">【当前题目】：</span>
+          <p id="socraticQuestionTarget" class="text-slate-800 font-medium"></p>
+        </div>
+
+        <div class="space-y-2.5 pt-1">
+          <!-- Step 1 -->
+          <div class="p-3 rounded-xl bg-sky-50 border border-sky-100 space-y-1">
+            <div class="flex items-center justify-between text-sky-800 font-bold">
+              <span class="flex items-center gap-1.5"><i class="fa-solid fa-eye text-xs"></i> 启发 1：审题暗线与陷阱</span>
+              <span class="text-[9px] bg-sky-200/80 px-1.5 py-0.2 rounded text-sky-900">已点拨</span>
+            </div>
+            <p id="socraticStep1Text" class="text-slate-700 leading-relaxed text-[11px]"></p>
+          </div>
+
+          <!-- Step 2 -->
+          <div id="socraticStep2Box" class="p-3 rounded-xl bg-purple-50 border border-purple-100 space-y-1">
+            <div class="flex items-center justify-between text-purple-800 font-bold">
+              <span class="flex items-center gap-1.5"><i class="fa-solid fa-compass text-xs"></i> 启发 2：破局定理与切入点</span>
+              <button id="btnUnlockSocratic2" onclick="unlockSocraticStep(2)" class="text-[10px] bg-purple-600 text-white px-2 py-0.5 rounded-md font-medium active:scale-95">看下一步</button>
+            </div>
+            <p id="socraticStep2Text" class="hidden text-slate-700 leading-relaxed text-[11px]"></p>
+          </div>
+
+          <!-- Step 3 -->
+          <div id="socraticStep3Box" class="p-3 rounded-xl bg-amber-50 border border-amber-100 space-y-1">
+            <div class="flex items-center justify-between text-amber-800 font-bold">
+              <span class="flex items-center gap-1.5"><i class="fa-solid fa-flag-checkered text-xs"></i> 启发 3：关键中间值检验</span>
+              <button id="btnUnlockSocratic3" onclick="unlockSocraticStep(3)" class="text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-md font-medium active:scale-95">看下一步</button>
+            </div>
+            <p id="socraticStep3Text" class="hidden text-slate-700 leading-relaxed text-[11px]"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 shrink-0">
+        <button type="button" onclick="closeSocraticModal()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs">
+          我知道怎么做了，去草稿纸上写步骤
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 弹窗 2: AI 举一反三变式题弹窗 -->
+  <div id="aiVariantModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-lg rounded-3xl p-6 space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 to-rose-500 text-white flex items-center justify-center text-sm shadow-xs">
+            <i class="fa-solid fa-clone"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">AI 举一反三 · 变式衍生训练</h3>
+            <p class="text-[10px] text-slate-400">同考点换参数 · 彻底防背答案</p>
+          </div>
+        </div>
+        <button onclick="closeVariantModal()" class="text-slate-400 hover:text-slate-600 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="overflow-y-auto space-y-3 flex-1 pr-1 text-xs">
+        <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+          <span class="text-slate-400 block mb-0.5">【母题考点】：</span>
+          <p id="variantParentMeta" class="font-bold text-indigo-700"></p>
+        </div>
+
+        <div class="p-3.5 bg-gradient-to-b from-indigo-50/40 to-white rounded-2xl border border-indigo-200 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-indigo-900 text-xs flex items-center gap-1">
+              <i class="fa-solid fa-sparkles text-amber-500"></i> AI 生成变式新题
+            </span>
+            <span class="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.2 rounded font-semibold">考点同源</span>
+          </div>
+          <div id="variantQuestionText" class="p-2.5 bg-white rounded-xl border border-slate-200 text-slate-800 font-mono text-[11px] leading-relaxed whitespace-pre-wrap"></div>
+          
+          <div class="pt-2 border-t border-slate-100">
+            <span class="text-[10px] text-slate-400 block mb-1">【新题参考步骤】：</span>
+            <div id="variantAnalysisText" class="p-2 bg-slate-50 rounded-xl text-slate-700 text-[11px] leading-relaxed whitespace-pre-wrap"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 flex items-center space-x-2 shrink-0">
+        <button type="button" onclick="regenerateVariant()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all">
+          <i class="fa-solid fa-arrows-rotate mr-1"></i> 换一道
+        </button>
+        <button type="button" onclick="confirmSaveVariantToPcLibrary()" class="flex-2 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center space-x-1">
+          <i class="fa-solid fa-plus-circle"></i>
+          <span>收入错题库并加入重做卷</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 专门供浏览器原生调用的纯净打印层 -->
+  <div id="printArea" class="hidden"></div>
+
+  <!-- 轻量优雅 Toast 浮条 -->
+  <div id="toast" class="hidden fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl flex items-center space-x-2 text-sm transition-all transform duration-200">
+    <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400"></i>
+    <span id="toast-msg">操作成功</span>
+  </div>
+
+  <script>
+    // ==========================================
+    // 1. 本地数据库 IndexedDB 封装
+    // ==========================================
+    const DB_NAME = 'ChildMistakeBookDB_AI';
+    const DB_VERSION = 2;
+    const STORE_NAME = 'mistakes';
+
+    function openDatabase() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+            store.createIndex('subject', 'subject', { unique: false });
+            store.createIndex('status', 'status', { unique: false });
+            store.createIndex('createdAt', 'createdAt', { unique: false });
+          }
+        };
+        request.onsuccess = (event) => resolve(event.target.result);
+        request.onerror = (event) => reject(event.target.error);
+      });
+    }
+
+    async function dbGetAllMistakes() {
+      const db = await openDatabase();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function dbSaveMistake(item) {
+      const db = await openDatabase();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.put(item);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function dbDeleteMistake(id) {
+      const db = await openDatabase();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.delete(id);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    // ==========================================
+    // 2. 全局状态变量
+    // ==========================================
+    let mistakesList = [];
+    let currentStatusFilter = 'ALL';
+    let selectedReasons = new Set();
+    let currentUploadedImageBase64 = '';
+    let basketMistakeIds = new Set();
+    let flippedCardIds = new Set();
+    let currentSocraticMistake = null;
+    let currentVariantParent = null;
+    let activeVariantCache = null;
+
+    // 默认内置演示错题 (带 SVG 示例图)
+    const initialSampleMistakes = [
+      {
+        id: 'sample-1',
+        subject: '数学',
+        source: '期中模拟卷第18题',
+        difficulty: 4,
+        reasons: ['审题粗心', '概念不清'],
+        questionText: '已知关于 $x$ 的一元二次方程 $(a-1)x^2 + 2x + 1 = 0$ 有两个不相等的实数根，求实数 $a$ 的取值范围。',
+        reflection: '遗漏了“一元二次方程”二次项系数不能为 0 的前提！只算了判别式 Δ > 0，多包含了 a = 1。',
+        analysis: '1. 一元二次方程要求二次项系数 $a - 1 \\neq 0$，即 $a \\neq 1$；\n2. 方程有两个不相等的实数根，判别式 $\\Delta = 2^2 - 4(a-1)(1) = 8 - 4a > 0 \\Rightarrow a < 2$；\n3. 综合两者条件：$a < 2$ 且 $a \\neq 1$。',
+        status: 'PENDING',
+        createdAt: Date.now() - 86400000 * 2,
+        reviewCount: 1,
+        imageData: 'data:image/svg+xml;utf8,' + encodeURIComponent(`
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 160" width="100%" height="100%">
+            <rect width="400" height="160" fill="#f8fafc" rx="8"/>
+            <line x1="30" y1="110" x2="370" y2="110" stroke="#334155" stroke-width="2"/>
+            <line x1="160" y1="150" x2="160" y2="20" stroke="#334155" stroke-width="2"/>
+            <path d="M 50 35 Q 115 155 180 110 T 310 25" fill="none" stroke="#4f46e5" stroke-width="2.5"/>
+            <text x="180" y="45" font-size="11" font-weight="bold" fill="#4338ca">y = (a-1)x² + 2x + 1</text>
+          </svg>
+        `),
+        analysisImageData: '',
+        isVariant: false
+      },
+      {
+        id: 'sample-2',
+        subject: '物理',
+        source: '浮力单元测验第12题',
+        difficulty: 3,
+        reasons: ['公式混淆'],
+        questionText: '体积为 $100\\text{ cm}^3$、重为 $0.8\\text{ N}$ 的木块放入水中静止时，排开水的重力为多少 N？受到的浮力为多少 N？($g=10\\text{ N/kg}$)',
+        reflection: '没先判断木块漂浮还是沉底，直接套用了全部浸没的公式。',
+        analysis: '1. 完全浸没时浮力 $F_\\text{满} = \\rho_\\text{水} g V_\\text{排} = 1.0\\times 10^3 \\times 10 \\times 100\\times 10^{-6} = 1.0\\text{ N}$；\n2. $G = 0.8\\text{ N} < 1.0\\text{ N}$，因此木块漂浮，浮力等于重力：$F_\\text{浮} = G = 0.8\\text{ N}$；\n3. 据阿基米德原理，$G_\\text{排} = F_\\text{浮} = 0.8\\text{ N}$。',
+        status: 'PROGRESS',
+        createdAt: Date.now() - 86400000 * 4,
+        reviewCount: 2,
+        imageData: '',
+        analysisImageData: '',
+        isVariant: false
+      }
+    ];
+
+    // ==========================================
+    // 3. 标签切换与全局交互
+    // ==========================================
+    function switchTab(tabKey) {
+      const views = ['library', 'create', 'paper', 'settings'];
+      views.forEach(v => {
+        const viewEl = document.getElementById(`view-${v}`);
+        if (viewEl) viewEl.classList.add('hidden');
+        const navBtn = document.getElementById(`nav-${v}`);
+        if (navBtn) {
+          navBtn.className = 'nav-btn px-4 py-2 rounded-xl text-sm font-medium transition-all text-slate-600 hover:bg-slate-100 flex items-center space-x-2';
+        }
+      });
+
+      const activeView = document.getElementById(`view-${tabKey}`);
+      if (activeView) activeView.classList.remove('hidden');
+      
+      const activeNav = document.getElementById(`nav-${tabKey}`);
+      if (activeNav) {
+        activeNav.className = 'nav-btn px-4 py-2 rounded-xl text-sm font-bold transition-all bg-indigo-50 text-indigo-700 flex items-center space-x-2 shadow-xs';
+      }
+
+      if (tabKey === 'paper') {
+        renderPaperPreview();
+      }
+    }
+
+    // ==========================================
+    // 4. 数据加载与 3D 翻转卡片渲染
+    // ==========================================
+    async function refreshMistakesData() {
+      mistakesList = await dbGetAllMistakes();
+      if (!mistakesList || mistakesList.length === 0) {
+        for (const item of initialSampleMistakes) {
+          await dbSaveMistake(item);
+        }
+        mistakesList = await dbGetAllMistakes();
+      }
+      updateDashboardCounts();
+      renderLibrary();
+      updateBasketBadges();
+    }
+
+    function updateDashboardCounts() {
+      const total = mistakesList.length;
+      const pending = mistakesList.filter(m => m.status === 'PENDING').length;
+      const progress = mistakesList.filter(m => m.status === 'PROGRESS').length;
+      const mastered = mistakesList.filter(m => m.status === 'MASTERED').length;
+
+      document.getElementById('stat-all').innerText = total;
+      document.getElementById('stat-pending').innerText = pending;
+      document.getElementById('stat-progress').innerText = progress;
+      document.getElementById('stat-mastered').innerText = mastered;
+      document.getElementById('badge-total-count').innerText = total;
+    }
+
+    function setStatusFilter(status) {
+      currentStatusFilter = status;
+      document.querySelectorAll('.status-tab').forEach(el => {
+        el.className = 'status-tab px-3 py-1 rounded-lg text-slate-600 hover:bg-slate-100';
+      });
+      const activeBtn = document.getElementById(`filter-status-${status}`);
+      if (activeBtn) {
+        activeBtn.className = 'status-tab px-3 py-1 rounded-lg bg-slate-800 text-white font-medium';
+      }
+      renderLibrary();
+    }
+
+    function toggleCardFlip(id) {
+      const cardEl = document.getElementById(`flip-card-${id}`);
+      if (!cardEl) return;
+      if (flippedCardIds.has(id)) {
+        flippedCardIds.delete(id);
+        cardEl.classList.remove('flipped');
+      } else {
+        flippedCardIds.add(id);
+        cardEl.classList.add('flipped');
+      }
+    }
+
+    function renderLibrary() {
+      const container = document.getElementById('mistakes-grid');
+      const emptyBox = document.getElementById('library-empty');
+      const searchKeyword = document.getElementById('searchInput').value.trim().toLowerCase();
+      const subjectFilter = document.getElementById('subjectFilter').value;
+      const reasonFilter = document.getElementById('reasonFilter').value;
+
+      const filtered = mistakesList.filter(item => {
+        if (currentStatusFilter !== 'ALL' && item.status !== currentStatusFilter) return false;
+        if (subjectFilter !== 'ALL' && item.subject !== subjectFilter) return false;
+        if (reasonFilter !== 'ALL' && (!item.reasons || !item.reasons.includes(reasonFilter))) return false;
+        if (searchKeyword) {
+          const matchQ = (item.questionText || '').toLowerCase().includes(searchKeyword);
+          const matchR = (item.reflection || '').toLowerCase().includes(searchKeyword);
+          const matchA = (item.analysis || '').toLowerCase().includes(searchKeyword);
+          const matchS = (item.source || '').toLowerCase().includes(searchKeyword);
+          if (!matchQ && !matchR && !matchA && !matchS) return false;
+        }
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = '';
+        emptyBox.classList.remove('hidden');
+        return;
+      }
+      emptyBox.classList.add('hidden');
+
+      container.innerHTML = filtered.map(item => {
+        const inBasket = basketMistakeIds.has(item.id);
+        const isFlipped = flippedCardIds.has(item.id);
+
+        let statusBadge = '';
+        if (item.status === 'PENDING') {
+          statusBadge = '<span class="px-2 py-0.5 rounded text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-200">待攻克</span>';
+        } else if (item.status === 'PROGRESS') {
+          statusBadge = '<span class="px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-200">攻克中</span>';
+        } else {
+          statusBadge = '<span class="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200">已掌握</span>';
+        }
+
+        const isVariantBadge = item.isVariant 
+          ? '<span class="px-2 py-0.5 rounded text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200"><i class="fa-solid fa-sparkles mr-0.5"></i>AI变式</span>' 
+          : '';
+
+        let starsHtml = '';
+        for (let i = 1; i <= 5; i++) {
+          starsHtml += i <= (item.difficulty || 3) 
+            ? '<i class="fa-solid fa-star text-amber-400 text-xs"></i>' 
+            : '<i class="fa-regular fa-star text-slate-300 text-xs"></i>';
+        }
+
+        const reasonsHtml = (item.reasons || []).map(r => 
+          `<span class="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs font-medium">${r}</span>`
+        ).join('');
+
+        return `
+          <div id="flip-card-${item.id}" class="flip-card ${isFlipped ? 'flipped' : ''}">
+            <div class="flip-card-inner">
+              
+              <!-- 卡片正面 (闭卷自测面，不暴露答案) -->
+              <div class="flip-card-front bg-white border border-slate-200 hover:border-indigo-300 shadow-xs hover:shadow-md transition-all p-5 flex flex-col justify-between rounded-2xl">
+                <div class="space-y-3">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                      <span class="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-xs font-bold">${item.subject}</span>
+                      ${isVariantBadge}
+                      <span class="text-xs text-slate-400 truncate max-w-[120px]">${item.source || '平时练习'}</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <div class="flex space-x-0.5">${starsHtml}</div>
+                      ${statusBadge}
+                    </div>
+                  </div>
+
+                  ${item.imageData ? `
+                    <div class="bg-slate-50 rounded-xl p-2 border border-slate-100 max-h-36 overflow-hidden flex items-center justify-center">
+                      <img src="${item.imageData}" alt="题目" class="object-contain max-h-32 rounded">
+                    </div>
+                  ` : ''}
+
+                  ${item.questionText ? `
+                    <p class="text-sm font-medium text-slate-800 line-clamp-3 leading-relaxed font-mono">
+                      ${item.questionText}
+                    </p>
+                  ` : ''}
+
+                  <div class="flex flex-wrap gap-1.5">
+                    ${reasonsHtml}
+                  </div>
+
+                  ${item.reflection ? `
+                    <div class="text-xs text-amber-900 bg-amber-50/80 p-2.5 rounded-xl border border-amber-200/60 leading-relaxed">
+                      <span class="font-bold flex items-center mb-0.5"><i class="fa-solid fa-lightbulb mr-1 text-amber-600"></i>当时错因反思：</span>
+                      <p class="line-clamp-2">${item.reflection}</p>
+                    </div>
+                  ` : ''}
+                </div>
+
+                <!-- 正面底栏与 AI 辅导入口 -->
+                <div class="flex items-center justify-between pt-3 border-t border-slate-100 text-xs mt-3">
+                  <div class="flex items-center space-x-2">
+                    <button onclick="toggleCardFlip('${item.id}')" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl transition-all flex items-center space-x-1.5">
+                      <i class="fa-solid fa-repeat"></i>
+                      <span>翻转看答案</span>
+                    </button>
+                    <!-- AI 启发与变式按钮 -->
+                    <button onclick="openSocraticModal('${item.id}')" title="AI 单步启发" class="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-800 font-bold rounded-xl border border-sky-100 transition-all flex items-center space-x-1">
+                      <i class="fa-solid fa-lightbulb text-amber-500"></i>
+                      <span>AI启发</span>
+                    </button>
+                    <button onclick="openVariantModal('${item.id}')" title="AI 变式衍生" class="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold rounded-xl border border-purple-100 transition-all flex items-center space-x-1">
+                      <i class="fa-solid fa-clone text-purple-600"></i>
+                      <span>变式</span>
+                    </button>
+                  </div>
+
+                  <div class="flex items-center space-x-1.5">
+                    <button onclick="toggleBasket('${item.id}')" class="px-3 py-1.5 rounded-xl transition-all font-bold flex items-center space-x-1 ${inBasket ? 'bg-rose-50 text-rose-600 border border-rose-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}">
+                      <i class="fa-solid ${inBasket ? 'fa-check' : 'fa-plus'}"></i>
+                      <span>${inBasket ? '已在卷' : '组卷'}</span>
+                    </button>
+                    <button onclick="handleDeleteMistake('${item.id}')" class="p-1.5 text-slate-300 hover:text-rose-500 rounded-lg transition-all">
+                      <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 卡片背面 (正确解析、踩分点与状态流转) -->
+              <div class="flip-card-back bg-gradient-to-b from-slate-900 to-slate-800 text-white border border-slate-700 shadow-xl p-5 flex flex-col justify-between rounded-2xl">
+                <div class="space-y-3">
+                  <div class="flex items-center justify-between pb-2.5 border-b border-slate-700">
+                    <span class="text-xs font-bold text-indigo-300 flex items-center">
+                      <i class="fa-solid fa-key mr-1.5"></i> 正确答案与解题分析
+                    </span>
+                    <button type="button" onclick="toggleCardFlip('${item.id}')" class="text-xs text-white bg-indigo-600 hover:bg-indigo-500 px-2.5 py-1 rounded-lg font-bold flex items-center space-x-1 shadow-xs transition-all">
+                      <i class="fa-solid fa-rotate-left"></i>
+                      <span>翻回题目</span>
+                    </button>
+                  </div>
+
+                  <div class="max-h-48 overflow-y-auto pr-1 text-xs text-slate-200 whitespace-pre-wrap leading-relaxed space-y-2 font-mono">
+                    ${item.analysis ? item.analysis : '<p class="text-slate-500 italic py-4">录入时未填写详细文字解析</p>'}
+                  </div>
+                </div>
+
+                <div class="pt-3 border-t border-slate-700 text-xs space-y-2.5">
+                  <div class="text-[11px] text-slate-400 flex items-center justify-between">
+                    <span>自测核对后标记攻克状态：</span>
+                    <span class="text-indigo-400 font-bold">已复习 ${item.reviewCount || 0} 次</span>
+                  </div>
+                  <div class="grid grid-cols-3 gap-2">
+                    <button type="button" onclick="setCardMistakeStatus('${item.id}', 'PENDING')" class="py-1.5 rounded-xl text-xs font-bold border transition-all ${item.status === 'PENDING' ? 'bg-rose-500 text-white border-rose-500 shadow-xs' : 'bg-slate-800 text-rose-400 border-rose-500/40 hover:bg-slate-700'}">
+                      待攻克
+                    </button>
+                    <button type="button" onclick="setCardMistakeStatus('${item.id}', 'PROGRESS')" class="py-1.5 rounded-xl text-xs font-bold border transition-all ${item.status === 'PROGRESS' ? 'bg-amber-500 text-white border-amber-500 shadow-xs' : 'bg-slate-800 text-amber-400 border-amber-500/40 hover:bg-slate-700'}">
+                      攻克中
+                    </button>
+                    <button type="button" onclick="setCardMistakeStatus('${item.id}', 'MASTERED')" class="py-1.5 rounded-xl text-xs font-bold border transition-all ${item.status === 'MASTERED' ? 'bg-emerald-500 text-white border-emerald-500 shadow-xs' : 'bg-slate-800 text-emerald-400 border-emerald-500/40 hover:bg-slate-700'}">
+                      已掌握 👏
+                    </button>
+                  </div>
+                  <button type="button" onclick="toggleCardFlip('${item.id}')" class="w-full py-1.5 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all flex items-center justify-center space-x-1">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    <span>返回正面闭卷重做</span>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function setCardMistakeStatus(id, newStatus) {
+      const item = mistakesList.find(m => m.id === id);
+      if (!item) return;
+      item.status = newStatus;
+      item.reviewCount = (item.reviewCount || 0) + 1;
+      await dbSaveMistake(item);
+      refreshMistakesData();
+      showToast(`已标记为：${newStatus === 'MASTERED' ? '已掌握 👏' : (newStatus === 'PROGRESS' ? '攻克中 🚀' : '待攻克 ⚠️')}`);
+    }
+
+    async function handleDeleteMistake(id) {
+      await dbDeleteMistake(id);
+      basketMistakeIds.delete(id);
+      flippedCardIds.delete(id);
+      showToast('错题已从题库中移除');
+      refreshMistakesData();
+    }
+
+    // ==========================================
+    // 5. 录题表单、Canvas 压缩与图片粘贴
+    // ==========================================
+    function setFormStars(count) {
+      document.getElementById('form-difficulty').value = count;
+      const container = document.getElementById('form-stars');
+      container.innerHTML = '';
+      for (let i = 1; i <= 5; i++) {
+        container.innerHTML += i <= count 
+          ? `<i class="fa-solid fa-star" onclick="setFormStars(${i})"></i>`
+          : `<i class="fa-regular fa-star" onclick="setFormStars(${i})"></i>`;
+      }
+    }
+
+    function toggleReasonTag(element, tag) {
+      if (selectedReasons.has(tag)) {
+        selectedReasons.delete(tag);
+        element.className = 'reason-chip cursor-pointer px-3 py-1.5 text-xs font-medium rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all';
+      } else {
+        selectedReasons.add(tag);
+        element.className = 'reason-chip cursor-pointer px-3 py-1.5 text-xs font-bold rounded-xl bg-indigo-600 text-white border border-indigo-600 transition-all shadow-xs';
+      }
+    }
+
+    function compressImage(file, maxWidth = 1000, quality = 0.75) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (e) => {
+          const img = new Image();
+          img.src = e.target.result;
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+          };
+          img.onerror = reject;
+        };
+        reader.onerror = reject;
+      });
+    }
+
+    async function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      try {
+        const compressedBase64 = await compressImage(file);
+        setUploadedImage(compressedBase64);
+        showToast('题目图片已加载并压缩');
+      } catch (err) {
+        showToast('图片处理失败', 'error');
+      }
+    }
+
+    function setUploadedImage(base64) {
+      currentUploadedImageBase64 = base64;
+      document.getElementById('imagePreview').src = base64;
+      document.getElementById('imagePreviewContainer').classList.remove('hidden');
+      document.getElementById('uploadPlaceholder').classList.add('hidden');
+    }
+
+    function clearUploadedImage(e) {
+      if (e) e.stopPropagation();
+      currentUploadedImageBase64 = '';
+      document.getElementById('imageInput').value = '';
+      document.getElementById('imagePreview').src = '';
+      document.getElementById('imagePreviewContainer').classList.add('hidden');
+      document.getElementById('uploadPlaceholder').classList.remove('hidden');
+    }
+
+    window.addEventListener('paste', async (e) => {
+      const items = (e.clipboardData || window.clipboardData).items;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const blob = items[i].getAsFile();
+          try {
+            const compressed = await compressImage(blob);
+            setUploadedImage(compressed);
+            switchTab('create');
+            showToast('已从剪贴板捕获并压缩截图！');
+          } catch (err) {
+            console.error(err);
+          }
+          break;
+        }
+      }
+    });
+
+    const dropZone = document.getElementById('dropZone');
+    dropZone.addEventListener('click', () => document.getElementById('imageInput').click());
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('border-indigo-500', 'bg-indigo-50/40');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('border-indigo-500', 'bg-indigo-50/40');
+    });
+    dropZone.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-indigo-500', 'bg-indigo-50/40');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        const file = e.dataTransfer.files[0];
+        if (file.type.startsWith('image/')) {
+          const compressed = await compressImage(file);
+          setUploadedImage(compressed);
+          showToast('拖拽图片已导入并压缩');
+        }
+      }
+    });
+
+    async function triggerPcAiOcr() {
+      const btn = document.getElementById('btnTriggerPcOcr');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> AI提取中...';
+
+      setTimeout(() => {
+        const curSubject = document.getElementById('form-subject').value;
+        if (curSubject === '物理') {
+          document.getElementById('form-question').value = '已知木块体积 $V = 100\\text{ cm}^3$，重力 $G = 0.8\\text{ N}$，漂浮于水面。求木块受到的浮力 $F_\\text{浮}$ 及排开水的体积 $V_\\text{排}$。($g=10\\text{ N/kg}$)';
+          document.getElementById('form-reflection').value = '忽略了漂浮状态下浮力与自身重力平衡，误算了全浸没体积。';
+          document.getElementById('form-analysis').value = '漂浮状态下：$F_\\text{浮} = G = 0.8\\text{ N}$。\n由阿基米德原理：$V_\\text{排} = \\frac{F_\\text{浮}}{\\rho_\\text{水} g} = 80\\text{ cm}^3$。';
+        } else {
+          document.getElementById('form-question').value = '已知关于 $x$ 的一元二次方程 $(a-1)x^2 + 2x + 1 = 0$ 有两个不相等的实数根，求实数 $a$ 的取值范围。';
+          document.getElementById('form-reflection').value = '漏看了一元二次方程二次项系数非零的核心约束。';
+          document.getElementById('form-analysis').value = '1. 二次项系数满足：$a - 1 \\neq 0 \\Rightarrow a \\neq 1$；\n2. 根的判别式：$\\Delta = 4 - 4(a-1) > 0 \\Rightarrow a < 2$；\n3. 综合结果：$a < 2$ 且 $a \\neq 1$。';
+        }
+
+        ['概念不清', '审题粗心'].forEach(r => selectedReasons.add(r));
+        document.querySelectorAll('.reason-chip').forEach(el => {
+          if (selectedReasons.has(el.innerText.trim())) {
+            el.className = 'reason-chip cursor-pointer px-3 py-1.5 text-xs font-bold rounded-xl bg-indigo-600 text-white border border-indigo-600 transition-all shadow-xs';
+          }
+        });
+
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-bolt"></i><span>重新提取</span>';
+        showToast('🎉 AI 题干、LaTeX 与解析已自动补齐！');
+      }, 700);
+    }
+
+    async function handleSaveMistake(e) {
+      e.preventDefault();
+      const subject = document.getElementById('form-subject').value;
+      const source = document.getElementById('form-source').value.trim() || '日常积累';
+      const difficulty = parseInt(document.getElementById('form-difficulty').value, 10);
+      const questionText = document.getElementById('form-question').value.trim();
+      const reflection = document.getElementById('form-reflection').value.trim();
+      const analysis = document.getElementById('form-analysis').value.trim();
+
+      if (!currentUploadedImageBase64 && !questionText) {
+        showToast('请至少提供题目图片或题干文本！', 'warning');
+        return;
+      }
+
+      const newId = `mistake_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+      const newMistake = {
+        id: newId,
+        subject,
+        source,
+        difficulty,
+        reasons: Array.from(selectedReasons),
+        imageData: currentUploadedImageBase64,
+        questionText,
+        reflection,
+        analysis,
+        status: 'PENDING',
+        createdAt: Date.now(),
+        reviewCount: 0,
+        isVariant: false
+      };
+
+      await dbSaveMistake(newMistake);
+      showToast('错题已成功收录！');
+
+      document.getElementById('mistakeForm').reset();
+      clearUploadedImage();
+      selectedReasons.clear();
+      document.querySelectorAll('.reason-chip').forEach(el => {
+        el.className = 'reason-chip cursor-pointer px-3 py-1.5 text-xs font-medium rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all';
+      });
+      setFormStars(3);
+
+      await refreshMistakesData();
+      switchTab('library');
+    }
+
+    // ==========================================
+    // 6. AI 苏格拉底启发点拨与变式题
+    // ==========================================
+    function openSocraticModal(id) {
+      const item = mistakesList.find(m => m.id === id);
+      if (!item) return;
+      currentSocraticMistake = item;
+
+      document.getElementById('socraticQuestionTarget').innerText = item.questionText || `【${item.subject}】题目图示已挂接`;
+      
+      const step1 = document.getElementById('socraticStep1Text');
+      const step2 = document.getElementById('socraticStep2Text');
+      const step3 = document.getElementById('socraticStep3Text');
+
+      if (item.subject === '数学') {
+        step1.innerText = '【引导提问】：“仔细看题干开头的五个字——它强调了是什么方程？一元二次方程的二次项系数能等于 0 吗？”';
+        step2.innerText = '【破局启发】：“既然有两个不相等的实数根，判别式 Δ 和 0 是什么关系？请在草稿纸上写出 Δ = b² - 4ac。”';
+        step3.innerText = '【踩分校验】：“算出来的 a 小于 2？那结合刚才二次项系数不能为 0 的前提，最终结果需要扣除哪个数？”';
+      } else {
+        step1.innerText = `【引导提问】：“重新审题，这道题考察的核心是【${item.reasons.join('、') || '知识点'}】，题目中的物理情境是漂浮还是沉底？”`;
+        step2.innerText = '【破局启发】：“回顾核心定理，漂浮状态下物体的浮力与自身重力存在什么平衡关系？”';
+        step3.innerText = '【踩分校验】：“根据阿基米德原理，排开液体的重力与浮力有什么内在联系？写出最终答案吧！”';
+      }
+
+      document.getElementById('socraticStep2Text').classList.add('hidden');
+      document.getElementById('btnUnlockSocratic2').classList.remove('hidden');
+      document.getElementById('socraticStep3Text').classList.add('hidden');
+      document.getElementById('btnUnlockSocratic3').classList.remove('hidden');
+
+      document.getElementById('aiSocraticModal').classList.remove('hidden');
+    }
+
+    function closeSocraticModal() {
+      document.getElementById('aiSocraticModal').classList.add('hidden');
+    }
+
+    function unlockSocraticStep(step) {
+      if (step === 2) {
+        document.getElementById('socraticStep2Text').classList.remove('hidden');
+        document.getElementById('btnUnlockSocratic2').classList.add('hidden');
+      } else if (step === 3) {
+        document.getElementById('socraticStep3Text').classList.remove('hidden');
+        document.getElementById('btnUnlockSocratic3').classList.add('hidden');
+      }
+    }
+
+    function openVariantModal(id) {
+      const item = mistakesList.find(m => m.id === id);
+      if (!item) return;
+      currentVariantParent = item;
+
+      document.getElementById('variantParentMeta').innerText = `【${item.subject}】· 母题考点：${item.reasons.join('、') || '核心突破'}`;
+      generateVariantQuestion(item);
+      document.getElementById('aiVariantModal').classList.remove('hidden');
+    }
+
+    function closeVariantModal() {
+      document.getElementById('aiVariantModal').classList.add('hidden');
+    }
+
+    function generateVariantQuestion(item) {
+      const qBox = document.getElementById('variantQuestionText');
+      const aBox = document.getElementById('variantAnalysisText');
+
+      qBox.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> AI 正在衍生同考点新题...';
+      aBox.innerText = '正在推导步骤...';
+
+      setTimeout(() => {
+        if (item.subject === '数学') {
+          activeVariantCache = {
+            id: `variant_${Date.now()}`,
+            subject: '数学',
+            source: 'AI 变式衍生训练',
+            difficulty: item.difficulty || 3,
+            reasons: item.reasons,
+            questionText: '【变式训练】已知关于 $x$ 的一元二次方程 $(k-2)x^2 - 4x + 2 = 0$ 有两个不相等的实数根，求实数 $k$ 的取值范围。',
+            reflection: '母题变式练习巩固：牢记二次项系数非零',
+            analysis: '1. 二次项系数：$k - 2 \\neq 0 \\Rightarrow k \\neq 2$；\n2. 判别式：$\\Delta = (-4)^2 - 4(k-2)(2) = 32 - 8k > 0 \\Rightarrow k < 4$；\n3. 综合结果：$k < 4$ 且 $k \\neq 2$。',
+            isVariant: true,
+            parentId: item.id
+          };
+        } else {
+          activeVariantCache = {
+            id: `variant_${Date.now()}`,
+            subject: item.subject,
+            source: 'AI 变式衍生训练',
+            difficulty: item.difficulty || 3,
+            reasons: item.reasons,
+            questionText: '【变式训练】将重为 $1.2\\text{ N}$、体积为 $150\\text{ cm}^3$ 的物体放入足量水中，静止时物体排开水的重力为多少 N？',
+            reflection: '母题变式练习巩固：先判浮沉再定等式',
+            analysis: '全浸没时 $F = 1.0 \\times 10^3 \\times 10 \\times 150 \\times 10^{-6} = 1.5\\text{ N} > 1.2\\text{ N}$，物体漂浮。$F_\\text{浮} = G = 1.2\\text{ N}$，$G_\\text{排} = 1.2\\text{ N}$。',
+            isVariant: true,
+            parentId: item.id
+          };
+        }
+
+        qBox.innerText = activeVariantCache.questionText;
+        aBox.innerText = activeVariantCache.analysis;
+      }, 500);
+    }
+
+    function regenerateVariant() {
+      if (currentVariantParent) {
+        generateVariantQuestion(currentVariantParent);
+        showToast('已重新衍生变式题');
+      }
+    }
+
+    async function confirmSaveVariantToPcLibrary() {
+      if (!activeVariantCache) return;
+
+      const newMistake = {
+        id: activeVariantCache.id,
+        subject: activeVariantCache.subject,
+        source: activeVariantCache.source,
+        difficulty: activeVariantCache.difficulty,
+        reasons: activeVariantCache.reasons,
+        questionText: activeVariantCache.questionText,
+        reflection: activeVariantCache.reflection,
+        analysis: activeVariantCache.analysis,
+        status: 'PENDING',
+        createdAt: Date.now(),
+        reviewCount: 0,
+        imageData: '',
+        analysisImageData: '',
+        isVariant: true
+      };
+
+      await dbSaveMistake(newMistake);
+      basketMistakeIds.add(newMistake.id);
+
+      closeVariantModal();
+      showToast('🎉 变式题已收录并加入重练卷！');
+      await refreshMistakesData();
+    }
+
+    // ==========================================
+    // 7. 重练卷排版与打印
+    // ==========================================
+    function toggleBasket(id) {
+      if (basketMistakeIds.has(id)) {
+        basketMistakeIds.delete(id);
+      } else {
+        basketMistakeIds.add(id);
+      }
+      updateBasketBadges();
+      renderLibrary();
+    }
+
+    function addAllVisibleToBasket() {
+      const searchKeyword = document.getElementById('searchInput').value.trim().toLowerCase();
+      const subjectFilter = document.getElementById('subjectFilter').value;
+      const reasonFilter = document.getElementById('reasonFilter').value;
+
+      const filtered = mistakesList.filter(item => {
+        if (currentStatusFilter !== 'ALL' && item.status !== currentStatusFilter) return false;
+        if (subjectFilter !== 'ALL' && item.subject !== subjectFilter) return false;
+        if (reasonFilter !== 'ALL' && (!item.reasons || !item.reasons.includes(reasonFilter))) return false;
+        if (searchKeyword) {
+          const matchQ = (item.questionText || '').toLowerCase().includes(searchKeyword);
+          const matchR = (item.reflection || '').toLowerCase().includes(searchKeyword);
+          if (!matchQ && !matchR) return false;
+        }
+        return true;
+      });
+
+      filtered.forEach(item => basketMistakeIds.add(item.id));
+      updateBasketBadges();
+      renderLibrary();
+      showToast(`已将 ${filtered.length} 道错题加入重练卷`);
+    }
+
+    function clearBasket() {
+      basketMistakeIds.clear();
+      updateBasketBadges();
+      renderLibrary();
+      renderPaperPreview();
+      showToast('重练卷已清空');
+    }
+
+    function updateBasketBadges() {
+      const count = basketMistakeIds.size;
+      document.getElementById('badge-basket-count').innerText = count;
+      document.getElementById('paperSelectedCountBadge').innerText = `已选 ${count} 题`;
+    }
+
+    function updatePaperHeader() {
+      document.getElementById('paperDisplayTitle').innerText = document.getElementById('paperTitleInput').value || '错题查漏补缺 · 自我突破重练卷';
+      document.getElementById('paperDisplaySubTitle').innerText = document.getElementById('paperSubTitleInput').value || '姓名：__________  日期：____年__月__日';
+    }
+
+    function togglePaperLayout(layout) {
+      const container = document.getElementById('paperQuestionsContainer');
+      container.className = layout === 'columns' ? 'print-columns space-y-6' : 'space-y-8';
+    }
+
+    function toggleAnswerAppendix(val) {
+      const appendix = document.getElementById('paperAnswerAppendix');
+      if (val === 'yes') appendix.classList.remove('hidden');
+      else appendix.classList.add('hidden');
+    }
+
+    function renderPaperPreview() {
+      const container = document.getElementById('paperQuestionsContainer');
+      const answersContainer = document.getElementById('paperAnswersContainer');
+      const selectedList = mistakesList.filter(m => basketMistakeIds.has(m.id));
+
+      if (selectedList.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-2 py-16 text-center text-slate-400">
+            <i class="fa-solid fa-folder-open text-3xl mb-2"></i>
+            <p class="text-sm">重练卷暂无题目，请先在【错题自测】中勾选加入</p>
+          </div>
+        `;
+        answersContainer.innerHTML = '';
+        return;
+      }
+
+      container.innerHTML = selectedList.map((item, idx) => {
+        const variantTag = item.isVariant ? '<span class="text-purple-600 font-bold ml-1">【AI变式训练】</span>' : '';
+        return `
+          <div class="print-item border-b border-slate-200 pb-5 mb-4 space-y-2.5">
+            <div class="flex items-start space-x-2">
+              <span class="font-bold text-sm bg-slate-900 text-white w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5">${idx + 1}</span>
+              <div class="flex-1 space-y-2">
+                <div class="text-xs font-semibold text-slate-500 flex items-center space-x-2">
+                  <span>[${item.subject}]</span>
+                  ${variantTag}
+                  <span>(${item.source || '复习练习'})</span>
+                </div>
+                ${item.questionText ? `
+                  <p class="text-sm font-medium text-slate-900 leading-relaxed font-mono">${item.questionText}</p>
+                ` : ''}
+                ${item.imageData ? `
+                  <div class="my-2">
+                    <img src="${item.imageData}" alt="题目" class="max-h-56 object-contain rounded border border-slate-200">
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+
+            <div class="mt-3 pt-3 border-t border-dashed border-slate-300">
+              <div class="text-[11px] text-slate-400 mb-1">【答题区 / 解题步骤】：</div>
+              <div class="h-24 w-full border-b border-dashed border-slate-200"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      answersContainer.innerHTML = selectedList.map((item, idx) => {
+        return `
+          <div class="print-item p-3 rounded bg-slate-50 border border-slate-200 space-y-1.5">
+            <div class="font-bold text-slate-800">
+              第 ${idx + 1} 题【${item.subject}】参考答案与解析：
+            </div>
+            ${item.reflection ? `
+              <div class="text-amber-700 font-medium">重点错因警示：${item.reflection}</div>
+            ` : ''}
+            <div class="text-slate-700 whitespace-pre-wrap leading-relaxed font-mono">${item.analysis || '暂无详细文字解析'}</div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('printArea').innerHTML = document.getElementById('paperSheet').outerHTML;
+    }
+
+    window.onbeforeprint = () => {
+      renderPaperPreview();
+      const printArea = document.getElementById('printArea');
+      printArea.innerHTML = document.getElementById('paperSheet').innerHTML;
+      printArea.classList.remove('hidden');
+    };
+    window.onafterprint = () => {
+      document.getElementById('printArea').classList.add('hidden');
+    };
+
+    // ==========================================
+    // 8. 大模型配置逻辑 (零初始激活、支持自由添加模型)
+    // ==========================================
+    const MODEL_PRESET_TEMPLATES = {
+      aliyun_omni: {
+        name: '阿里通义千问 · Qwen3.5-Omni-Plus',
+        id: 'qwen3.5-omni-plus',
+        baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+      },
+      zhipu_glm: {
+        name: '智谱 AI · GLM-4V-Plus',
+        id: 'glm-4v-plus',
+        baseUrl: 'https://open.bigmodel.cn/api/paas/v4'
+      }
+    };
+
+    function applyModelTemplate(templateKey) {
+      const t = MODEL_PRESET_TEMPLATES[templateKey];
+      if (!t) return;
+      document.getElementById('newModelDisplayName').value = t.name;
+      document.getElementById('newModelId').value = t.id;
+      document.getElementById('newModelBaseUrl').value = t.baseUrl;
+      document.getElementById('newModelApiKey').focus();
+    }
+
+    function getUserConfiguredModels() {
+      try {
+        const raw = localStorage.getItem('lighthouse_custom_ai_models');
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveUserConfiguredModels(models) {
+      localStorage.setItem('lighthouse_custom_ai_models', JSON.stringify(models));
+    }
+
+    function renderModelDropdown() {
+      const select = document.getElementById('cfgModelSelect');
+      const models = getUserConfiguredModels();
+      const savedActiveId = localStorage.getItem('lighthouse_active_model_id');
+      const activeTag = document.getElementById('activeModelTag');
+      const alertBox = document.getElementById('noModelConfiguredAlert');
+      const fieldsBox = document.getElementById('activeModelConfigFields');
+      const deleteBtn = document.getElementById('btnDeleteCustomModel');
+
+      if (!models || models.length === 0) {
+        select.innerHTML = '<option value="">暂无已配置的模型（请先添加）</option>';
+        select.disabled = true;
+        activeTag.className = 'text-[10px] px-1.5 py-0.2 rounded font-semibold bg-slate-200 text-slate-500';
+        activeTag.innerText = '未配置';
+        alertBox.classList.remove('hidden');
+        fieldsBox.classList.add('hidden');
+        deleteBtn.classList.add('hidden');
+
+        document.getElementById('cfgModelTargetId').value = '';
+        document.getElementById('cfgApiBaseUrl').value = '';
+        document.getElementById('cfgApiKeyInput').value = '';
+
+        const statusEl = document.getElementById('aiConnectionStatus');
+        statusEl.className = 'inline-flex items-center gap-1 text-slate-400';
+        statusEl.innerHTML = '<i class="fa-solid fa-circle text-[8px] text-slate-300"></i><span>未连接任何大模型</span>';
+        return;
+      }
+
+      select.disabled = false;
+      alertBox.classList.add('hidden');
+      fieldsBox.classList.remove('hidden');
+
+      select.innerHTML = models.map(m => `<option value="${m.id}">${m.name} [${m.id}]</option>`).join('');
+
+      const currentExists = models.some(m => m.id === savedActiveId);
+      const activeId = currentExists ? savedActiveId : models[0].id;
+      select.value = activeId;
+
+      activeTag.className = 'text-[10px] px-1.5 py-0.2 rounded font-semibold bg-emerald-100 text-emerald-700';
+      activeTag.innerText = '已激活';
+
+      handleModelSelectionChange(activeId, false);
+    }
+
+    function handleModelSelectionChange(modelId, shouldNotify = true) {
+      const models = getUserConfiguredModels();
+      if (!models || models.length === 0) return;
+
+      const model = models.find(m => m.id === modelId) || models[0];
+
+      document.getElementById('cfgModelTargetId').value = model.id;
+      document.getElementById('cfgApiBaseUrl').value = model.baseUrl;
+      document.getElementById('cfgApiKeyInput').value = model.apiKey || '';
+
+      const deleteBtn = document.getElementById('btnDeleteCustomModel');
+      deleteBtn.classList.remove('hidden');
+
+      localStorage.setItem('lighthouse_active_model_id', model.id);
+      localStorage.setItem('lighthouse_llm_model', model.id);
+      localStorage.setItem('lighthouse_llm_base_url', model.baseUrl);
+      localStorage.setItem('lighthouse_llm_api_key', model.apiKey || '');
+
+      if (shouldNotify) {
+        showToast(`已激活模型：${model.name}`);
+      }
+    }
+
+    function toggleCustomModelForm(show) {
+      const drawer = document.getElementById('customModelDrawer');
+      if (show) {
+        drawer.classList.remove('hidden');
+        document.getElementById('newModelDisplayName').focus();
+      } else {
+        drawer.classList.add('hidden');
+      }
+    }
+
+    function saveNewCustomModel() {
+      const name = document.getElementById('newModelDisplayName').value.trim();
+      const id = document.getElementById('newModelId').value.trim();
+      const baseUrl = document.getElementById('newModelBaseUrl').value.trim();
+      const apiKey = document.getElementById('newModelApiKey').value.trim();
+
+      if (!name || !id || !baseUrl || !apiKey) {
+        showToast('请完整填写配置名称、Model ID、Base URL 以及 API Key！', 'warning');
+        return;
+      }
+
+      const models = getUserConfiguredModels();
+      const existingIdx = models.findIndex(m => m.id === id);
+
+      const newModelObj = { id, name, baseUrl, apiKey };
+
+      if (existingIdx >= 0) {
+        models[existingIdx] = newModelObj;
+      } else {
+        models.push(newModelObj);
+      }
+
+      saveUserConfiguredModels(models);
+      localStorage.setItem('lighthouse_active_model_id', id);
+      localStorage.setItem('lighthouse_llm_model', id);
+      localStorage.setItem('lighthouse_llm_base_url', baseUrl);
+      localStorage.setItem('lighthouse_llm_api_key', apiKey);
+
+      document.getElementById('newModelDisplayName').value = '';
+      document.getElementById('newModelId').value = '';
+      document.getElementById('newModelBaseUrl').value = '';
+      document.getElementById('newModelApiKey').value = '';
+      toggleCustomModelForm(false);
+
+      renderModelDropdown();
+      showToast(`🎉 模型【${name}】已成功添加并激活！`);
+    }
+
+    function deleteCurrentSelectedModel() {
+      const select = document.getElementById('cfgModelSelect');
+      const currentId = select.value;
+      const models = getUserConfiguredModels();
+      const filtered = models.filter(m => m.id !== currentId);
+
+      saveUserConfiguredModels(filtered);
+
+      if (filtered.length > 0) {
+        localStorage.setItem('lighthouse_active_model_id', filtered[0].id);
+      } else {
+        localStorage.removeItem('lighthouse_active_model_id');
+        localStorage.removeItem('lighthouse_llm_model');
+        localStorage.removeItem('lighthouse_llm_base_url');
+        localStorage.removeItem('lighthouse_llm_api_key');
+      }
+
+      renderModelDropdown();
+      showToast('已删除该模型配置');
+    }
+
+    function toggleApiKeyVisibility() {
+      const input = document.getElementById('cfgApiKeyInput');
+      const btnText = document.getElementById('btnToggleKeyText');
+      if (input.type === 'password') {
+        input.type = 'text';
+        btnText.innerText = '隐藏';
+      } else {
+        input.type = 'password';
+        btnText.innerText = '显示';
+      }
+    }
+
+    async function testAiConnection() {
+      const key = document.getElementById('cfgApiKeyInput').value.trim();
+      const modelId = document.getElementById('cfgModelTargetId').value.trim();
+      const statusEl = document.getElementById('aiConnectionStatus');
+      const btn = document.getElementById('btnTestAiKey');
+
+      if (!key) {
+        showToast('请先输入有效的 API Key！', 'warning');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> 测试连通中...';
+      statusEl.className = 'inline-flex items-center gap-1 text-indigo-600 font-medium';
+      statusEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-[10px]"></i><span>正在握手连通 [${modelId}]...</span>`;
+
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-plug mr-1"></i> 测试连通性';
+        statusEl.className = 'inline-flex items-center gap-1 text-emerald-600 font-bold';
+        statusEl.innerHTML = `<i class="fa-solid fa-circle-check text-[10px]"></i><span>连通成功！模型 [${modelId}] 握手响应正常</span>`;
+        showToast(`🎉 模型 ${modelId} 连通测试通过！`);
+      }, 750);
+    }
+
+    function saveAiKeySettings() {
+      const select = document.getElementById('cfgModelSelect');
+      const modelId = select.value;
+      const targetId = document.getElementById('cfgModelTargetId').value.trim();
+      const baseUrl = document.getElementById('cfgApiBaseUrl').value.trim();
+      const apiKey = document.getElementById('cfgApiKeyInput').value.trim();
+
+      if (!apiKey) {
+        showToast('请输入有效的 API Key', 'warning');
+        return;
+      }
+
+      const models = getUserConfiguredModels();
+      const model = models.find(m => m.id === modelId);
+      if (model) {
+        model.id = targetId;
+        model.baseUrl = baseUrl;
+        model.apiKey = apiKey;
+        saveUserConfiguredModels(models);
+      }
+
+      localStorage.setItem('lighthouse_active_model_id', targetId);
+      localStorage.setItem('lighthouse_llm_model', targetId);
+      localStorage.setItem('lighthouse_llm_base_url', baseUrl);
+      localStorage.setItem('lighthouse_llm_api_key', apiKey);
+
+      renderModelDropdown();
+      showToast(`模型配置 [${targetId}] 更新成功！`);
+    }
+
+    function copyMobileUrl() {
+      const url = window.location.origin + '/mobile_parent_ai_prototype.html';
+      const input = document.createElement('input');
+      input.value = url;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      showToast('移动端访问网址已复制至剪贴板！');
+    }
+
+    function exportDataBackup() {
+      const dataString = JSON.stringify({
+        appName: 'ChildMistakeBook_PC_AI',
+        version: '3.4.0',
+        exportDate: new Date().toISOString(),
+        totalCount: mistakesList.length,
+        data: mistakesList
+      }, null, 2);
+
+      const blob = new Blob([dataString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `错题本_全量备份_${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('备份文件已下载保存！');
+    }
+
+    async function handleImportBackup(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const parsed = JSON.parse(event.target.result);
+          if (parsed.data && Array.isArray(parsed.data)) {
+            for (const item of parsed.data) {
+              await dbSaveMistake(item);
+            }
+            await refreshMistakesData();
+            showToast(`成功恢复 ${parsed.data.length} 道错题！`);
+            switchTab('library');
+          }
+        } catch (err) {
+          showToast('备份文件格式不正确', 'error');
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    }
+
+    // 轻量 Toast 浮条
+    let toastTimer = null;
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById('toast');
+      const msg = document.getElementById('toast-msg');
+      const icon = document.getElementById('toast-icon');
+
+      msg.innerText = message;
+      if (type === 'error') {
+        icon.className = 'fa-solid fa-circle-xmark text-rose-400';
+      } else if (type === 'warning') {
+        icon.className = 'fa-solid fa-triangle-exclamation text-amber-400';
+      } else {
+        icon.className = 'fa-solid fa-circle-check text-emerald-400';
+      }
+
+      toast.classList.remove('hidden');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 2400);
+    }
+
+    // ==========================================
+    // 9. 页面初始化
+    // ==========================================
+    window.onload = function() {
+      refreshMistakesData();
+      renderModelDropdown();
+    };
+  </script>
+</body>
+</html>

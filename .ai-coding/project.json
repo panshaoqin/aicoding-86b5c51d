@@ -1,0 +1,80 @@
+{
+    "schemaVersion":  2,
+    "appTemplate":  {
+                        "id":  "ai-coding-standard-app",
+                        "version":  "1.1.0",
+                        "contentId":  "4ac24baaf35b2e22a3ce153a8df9115d4fa2ce68e5f80766f46991381d1931e9"
+                    },
+    "baselineVersion":  "2.5.0",
+    "initializationStatus":  "verified",
+    "toolchain":  {
+                      "capabilities":  {
+                                           "schemaVersion":  2,
+                                           "node":  "22.12.0",
+                                           "npm":  "10.9.0",
+                                           "java":  "17.0.20.1",
+                                           "gradle":  "8.2.1",
+                                           "platform":  "linux",
+                                           "arch":  "x64",
+                                           "androidPlatforms":  [
+                                                                    "android-34"
+                                                                ],
+                                           "buildTools":  [
+                                                              "34.0.0"
+                                                          ],
+                                           "packages":  {
+                                                            "@ionic/react":  "8.8.19",
+                                                            "typescript":  "5.8.3",
+                                                            "vite":  "6.4.3",
+                                                            "@capacitor/core":  "6.2.2",
+                                                            "@capacitor/android":  "6.2.2",
+                                                            "@cloudbase/js-sdk":  "3.10.0",
+                                                            "@cloudbase/node-sdk":  "3.18.3",
+                                                            "tailwindcss":  "3.4.14"
+                                                        },
+                                           "gradleCachePresent":  true,
+                                           "templatePath":  "/opt/knowstar/template",
+                                           "androidBuildCommand":  "knowstar-android-build"
+                                       },
+                      "imageDigest":  "sha256:874c72192fff872157598d86869c56dae38edc406b5705d232271fd998ad3409",
+                      "verificationMethod":  "registry-digest",
+                      "imageId":  "80e90904b301d7b1cd19b17da35ec6952ac5280cfae241b1852acaf467a99fd1",
+                      "archiveSha256":  null,
+                      "verifiedAt":  "2026-10-24T09:56:33.2157967+08:00"
+                  },
+    "connection":  "podman-machine-default",
+    "compose":  {
+                    "provider":  "docker-compose",
+                    "path":  "D:\\ENV\\programs\\compose\\docker-compose.exe",
+                    "version":  "5.6.0",
+                    "sha256":  "8aeaa0055e660e12cf07cd70680dc8333957fe6718528b91ec3da084eab62483",
+                    "source":  "https://gitcode.com/oh_my_love/ai_practice/releases/download/1.0.0/docker-compose-windows-x86_64.exe"
+                },
+    "name":  "我的作品",
+    "nameSource":  "placeholder",
+    "purpose":  null,
+    "identityStatus":  "pending-design",
+    "storageRoot":  "D:\\ENV",
+    "slug":  "aicoding-86b5c51d",
+    "appId":  "com.aicoding.aicoding86b5c51d",
+    "sourceDirectory":  "app",
+    "designDirectory":  "docs/design",
+    "specDirectory":  "docs/specs",
+    "progressDirectory":  "docs/progress",
+    "image":  "crpi-iqktgpu6dyytuxiu.cn-hangzhou.personal.cr.aliyuncs.com/aipractice/knowstar-classroom@sha256:874c72192fff872157598d86869c56dae38edc406b5705d232271fd998ad3409",
+    "port":  5187,
+    "containerRuntime":  "podman",
+    "networkMode":  "pasta",
+    "capabilityMode":  "on-demand",
+    "capabilities":  [
+                         "local"
+                     ],
+    "android":  {
+                    "webDir":  "dist",
+                    "iconReviewRequired":  false
+                },
+    "businessProfile":  null,
+    "preparationId":  "3a954f69-8b34-431a-a875-b75c03c07560",
+    "installationId":  "0f039567da2342e0b0548577c0d17a51",
+    "preparationStatus":  "bound"
+}

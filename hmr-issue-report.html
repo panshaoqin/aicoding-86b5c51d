@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vite HMR 验证失败问题报告</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    line-height: 1.7;
+    color: #1f2937;
+    background: #f9fafb;
+    padding: 32px 16px;
+  }
+  .container {
+    max-width: 880px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.04);
+    overflow: hidden;
+  }
+  header {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    color: #fff;
+    padding: 32px 40px;
+  }
+  header .tag {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+  }
+  header h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+  header .subtitle { font-size: 14px; opacity: 0.9; }
+  main { padding: 32px 40px 40px; }
+  h2 {
+    font-size: 18px;
+    color: #111827;
+    margin: 28px 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #eef2ff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  h2 .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px; height: 24px;
+    background: #4f46e5;
+    color: #fff;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  p { margin-bottom: 12px; color: #374151; }
+  .callout {
+    background: #f0fdf4;
+    border-left: 4px solid #16a34a;
+    padding: 14px 18px;
+    border-radius: 6px;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  .callout.warn {
+    background: #fff7ed;
+    border-left-color: #ea580c;
+  }
+  .callout.danger {
+    background: #fef2f2;
+    border-left-color: #dc2626;
+  }
+  .callout strong { color: #111827; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 14px;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: #374151;
+    font-size: 13px;
+  }
+  td code, p code {
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 13px;
+    color: #db2777;
+  }
+  .timeline {
+    position: relative;
+    padding-left: 28px;
+    margin: 18px 0;
+  }
+  .timeline::before {
+    content: "";
+    position: absolute;
+    left: 8px; top: 6px; bottom: 6px;
+    width: 2px;
+    background: #e5e7eb;
+  }
+  .tl-item {
+    position: relative;
+    padding: 6px 0 6px 8px;
+    font-size: 14px;
+  }
+  .tl-item::before {
+    content: "";
+    position: absolute;
+    left: -24px; top: 12px;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #4f46e5;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px #e5e7eb;
+  }
+  .tl-item.fail::before { background: #dc2626; }
+  .tl-item.ok::before { background: #16a34a; }
+  .tl-time {
+    display: inline-block;
+    min-width: 88px;
+    color: #6b7280;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 12px;
+  }
+  ul { padding-left: 22px; margin: 10px 0; }
+  ul li { margin-bottom: 6px; color: #374151; font-size: 14px; }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .stat {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .stat .label { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+  .stat .value { font-size: 20px; font-weight: 600; color: #111827; }
+  .stat .value.bad { color: #dc2626; }
+  .stat .value.good { color: #16a34a; }
+  footer {
+    border-top: 1px solid #e5e7eb;
+    padding: 20px 40px;
+    font-size: 12px;
+    color: #6b7280;
+    background: #f9fafb;
+  }
+  .suggestion-list { counter-reset: sugg; list-style: none; padding-left: 0; }
+  .suggestion-list li {
+    counter-increment: sugg;
+    position: relative;
+    padding: 10px 12px 10px 44px;
+    background: #f0f9ff;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    border-left: 3px solid #0ea5e9;
+  }
+  .suggestion-list li::before {
+    content: counter(sugg);
+    position: absolute;
+    left: 10px; top: 10px;
+    width: 22px; height: 22px;
+    background: #0ea5e9;
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <span class="tag">问题报告 · 优化建议</span>
+    <h1>Vite HMR 验证失败问题报告</h1>
+    <div class="subtitle">ai-coding-project 初始化场景下，首轮 HMR 验收耗时异常分析</div>
+  </header>
+
+  <main>
+    <div class="stat-grid">
+      <div class="stat">
+        <div class="label">正常总耗时</div>
+        <div class="value good">~8 分钟</div>
+      </div>
+      <div class="stat">
+        <div class="label">本次实际耗时</div>
+        <div class="value bad">~16 分钟</div>
+      </div>
+      <div class="stat">
+        <div class="label">额外浪费</div>
+        <div class="value bad">~8 分钟</div>
+      </div>
+      <div class="stat">
+        <div class="label">失败环节</div>
+        <div class="value">首轮 HMR</div>
+      </div>
+    </div>
+
+    <h2><span class="num">1</span>问题概述</h2>
+    <p>在 ai-coding-project 项目初始化流程中，HMR（热模块替换）验证是关键验收环节。规范要求三步证据（baseline → changed → restored）的 <code>documentId</code> 必须<strong>完全一致</strong>，其中 <code>performance.timeOrigin</code> 是 documentId 的核心组成部分。</p>
+    <p>本次首轮 HMR 验证时，Begin 修改源码后 Vite 服务器触发了<strong>完整重启</strong>（而非模块级热替换），导致 <code>timeOrigin</code> 从 <code>1792828555174.5</code> 变为 <code>1792828827039.6</code>，三步 documentId 不一致，验证被拒。</p>
+
+    <h2><span class="num">2</span>失败时间线</h2>
+    <div class="timeline">
+      <div class="tl-item">
+        <span class="tl-time">15:55:00</span> 调用 ai-coding-project 技能
+      </div>
+      <div class="tl-item">
+        <span class="tl-time">~15:56</span> Initialize-Project.ps1 启动容器，Vite 服务器开始启动
+      </div>
+      <div class="tl-item">
+        <span class="tl-time">15:56:13</span> 页面首次加载，HTTP 200，记录 baseline（timeOrigin=1792828555174.5）
+      </div>
+      <div class="tl-item fail">
+        <span class="tl-time">15:56:14</span> HMR 探针 Begin 修改 App.tsx → Vite 服务器重启，页面完整重载
+      </div>
+      <div class="tl-item fail">
+        <span class="tl-time">16:02:53</span> 观察到 marker，发现 timeOrigin 已变（1792828827039.6），documentId 不一致
+      </div>
+      <div class="tl-item fail">
+        <span class="tl-time">16:04:20</span> 首轮验证被拒，证据未记录
+      </div>
+      <div class="tl-item ok">
+        <span class="tl-time">16:05:47</span> 第二轮 baseline（timeOrigin=1792828827039.6）
+      </div>
+      <div class="tl-item ok">
+        <span class="tl-time">16:05:48</span> 第二轮 Begin → HMR 正常生效，timeOrigin 不变
+      </div>
+      <div class="tl-item ok">
+        <span class="tl-time">16:06:50</span> 第二轮观察到 marker（模块级 HMR 生效）
+      </div>
+      <div class="tl-item ok">
+        <span class="tl-time">16:06:51</span> HMR 探针 Restore，恢复源码
+      </div>
+      <div class="tl-item ok">
+        <span class="tl-time">16:07:55</span> 第二轮 restored 确认，三步 documentId 一致
+      </div>
+      <div class="tl-item ok">
+        <span class="tl-time">16:11:23</span> 最终 Check 验收通过
+      </div>
+    </div>
+
+    <h2><span class="num">3</span>根本原因：Vite 依赖预构建未完成</h2>
+    <p>Vite 在冷启动时会扫描并<strong>预构建（pre-bundle）</strong>依赖项（React、ReactDOM 等 node_modules）。这个过程在服务器返回 200 后仍在后台进行。</p>
+    <p>关键在于：<strong>HTTP 200 不代表服务器已稳定</strong>。</p>
+
+    <div class="callout danger">
+      <strong>触发条件：</strong>服务器刚启动几秒内（依赖预构建尚未完成时）修改源码 → Vite 检测到源码变动但预构建未完成 → 触发<strong>服务器级重启</strong>（重新预构建）而非模块级 HMR → 浏览器完整重载 → <code>timeOrigin</code> 改变 → documentId 不一致 → 验证被拒。
+    </div>
+
+    <h2><span class="num">4</span>为什么第二轮成功</h2>
+    <p>第一轮结束时，Vite 的依赖预构建已全部完成，服务器进入稳定状态。第二轮修改 <code>App.tsx</code> 时，Vite 只需做模块级热替换，不涉及重新预构建，<code>timeOrigin</code> 不变，HMR 正常生效。</p>
+    <table>
+      <thead>
+        <tr><th>对比项</th><th>第一轮（失败）</th><th>第二轮（成功）</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>服务器状态</td><td>预构建进行中</td><td>预构建已完成</td></tr>
+        <tr><td>修改源码触发</td><td>服务器级重启</td><td>模块级 HMR</td></tr>
+        <tr><td>timeOrigin</td><td>变化（1792828555174.5 → 1792828827039.6）</td><td>不变（1792828827039.6）</td></tr>
+        <tr><td>documentId 一致性</td><td>不一致</td><td>完全一致</td></tr>
+        <tr><td>验证结果</td><td>被拒</td><td>通过</td></tr>
+      </tbody>
+    </table>
+
+    <h2><span class="num">5</span>易触发场景</h2>
+    <ul>
+      <li>容器环境，I/O 较慢，预构建窗口更长</li>
+      <li>项目依赖较多（React + ReactDOM + 其他库）</li>
+      <li>服务器刚启动几秒内就修改源码</li>
+      <li>页面能加载（HTTP 200）但预构建尚未完成</li>
+    </ul>
+
+    <div class="callout warn">
+      <strong>注意：</strong>不是偶发 bug，是容器环境下时机敏感的已知特性。本地开发机性能好时预构建瞬间完成，不易触发；容器环境下概率显著上升。
+    </div>
+
+    <h2><span class="num">6</span>优化建议</h2>
+    <ol class="suggestion-list">
+      <li><strong>等待服务器稳定后再开始 HMR 探针</strong>：服务器返回 200 后，额外等待几秒，确认 Vite 控制台不再有 <code>optimizing deps</code> 之类的输出，再记录 baseline。</li>
+      <li><strong>skill 规范补充等待步骤</strong>：在 <code>reliable-initialization.md</code> 第 13 行 baseline 步骤前，明确加一句"确认开发服务器已完全稳定（无 pending 预构建日志）后再记录 baseline"。</li>
+      <li><strong>服务器就绪探测</strong>：可选——在脚本层增加一个"服务器稳定"探测（如轮询 Vite 的预构建完成日志或特定接口），自动化判断预构建是否完成。</li>
+      <li><strong>失败后自动等待重试</strong>：首轮失败时，脚本可自动等待若干秒再重试一次，而非直接报告失败，减少人工干预成本。</li>
+    </ol>
+
+    <div class="callout">
+      <strong>当前规范定位：</strong>流程设计本身合理（已要求记录 timeOrigin 并校验一致性），主要空白在于<strong>未明确要求等待预构建完成</strong>。建议在规范层补充此步骤，可从根本上避免类似情况。
+    </div>
+  </main>
+
+  <footer>
+    生成时间：2026-10-24 · 工作目录：d:\从玩具到生产力工具\编程\v10 · 工具链镜像：knowstar-classroom@sha256:874c7219
+  </footer>
+</div>
+</body>
+</html>

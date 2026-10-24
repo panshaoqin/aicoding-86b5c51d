@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 4,
+  "status": "verified",
+  "checkedAt": "2026-10-24T16:04:20+08:00",
+  "checks": {
+    "projectEntryObserved": true,
+    "skillsObserved": true
+  },
+  "evidence": [
+    {
+      "step": "projectEntry",
+      "actor": "agent",
+      "method": "session-rule-injection",
+      "observedAt": "2026-10-24T15:55:00+08:00",
+      "reference": "AGENTS.md project rules visible in current session ; .trae/rules/course-entry.md rule loaded pointing to AGENTS.md as project execution entry"
+    }
+  ],
+  "skills": [
+    {
+      "name": "ai-coding-project",
+      "state": "invoked",
+      "method": "skill-tool",
+      "observedAt": "2026-10-24T15:55:00+08:00",
+      "reference": "Skill tool invoked with name=ai-coding-project at task start ; skill content loaded and followed for initialization"
+    }
+  ]
+}
